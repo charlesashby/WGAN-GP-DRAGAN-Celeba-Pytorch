@@ -23,8 +23,8 @@ resnet = models.resnet50(pretrained=True)
 # ----------------------------------------------------------------------
 #
 # 1. Create a .csv file containing tuples ('img_name.jpg', label==[{0,1}, {0,1}])
-# 2. Load this csv in labels
-# 3. Change the path to the images in train_ds and valid_ds
+# 2. Load that csv in "labels"
+# 3. Change the path to the images in "train_ds" and "valid_ds"
 # 4. Run it
 # 5. My results: (Eyeglasses)
 # >>> Epoch [1/1] train loss: 0.0026 acc: 0.9396 valid loss: 0.0023 acc: 0.9481
