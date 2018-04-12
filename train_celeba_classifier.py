@@ -115,8 +115,8 @@ class CustomDataset(Dataset):
         img_name = '{}'.format(self.labels.iloc[idx, 0])
         fullname = join(self.root_dir, img_name)
         image = Image.open(fullname)
-        labels = self.labels.iloc[idx, 1].astype('int')
-        # labels = np.argmax(labels)
+        labels = self.labels.iloc[idx, 1:].as_matrix().astype('float')
+        labels = np.argmax(labels)
         if self.transform:
             image = self.transform(image)
         return [image, labels]
