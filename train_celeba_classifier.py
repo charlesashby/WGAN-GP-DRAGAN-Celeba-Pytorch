@@ -227,4 +227,55 @@ if __name__ == '__main__':
     start_time = time.time()
     model = train_model(dloaders, resnet, criterion, optimizer, exp_lr_scheduler, num_epochs=2)
     print('Training time: {:10f} minutes'.format((time.time() - start_time)/60))
+    
+    # Load checkpoint
+    try:
+        ckpt = utils.load_checkpoint('{}/Epoch_({}).ckpt'.format(ckpt_dir, 1))
+        model.load_state_dict(ckpt['model'])
+    except:
+        pass
+
+    # Computing ROC curve
+    complete_ds = pos_[25000:] + neg_[-30000:]
+    file_name = 'data/labels_roc.csv'
+    random.Random(1).shuffle(complete_ds)
+    with open(file_name, 'wb') as out:
+        csv_out = csv.writer(out)
+        csv_out.writerow(['img_name', 'with_glasses', 'without_glasses'])
+        for row in complete_ds:
+            csv_out.writerow(row)
+
+    labels_roc = pd.read_csv('data/labels_roc.csv')
+
+    ds = CustomDataset(labels_roc, '/home/ashbylepoc/PycharmProjects/gan-tutorial/data/train/img_align_celeba/',
+                             transform=transform)
+
+    dl = DataLoader(ds, batch_size=64, shuffle=True, num_workers=4)
+
+    # compute accuracy
+    predictions = []
+    running_corrects = 0
+    running_label_len = 0
+
+    for i, (inputs, labels) in enumerate(dl):
+        if use_gpu:
+            inputs, labels = Variable(inputs.cuda()), Variable(labels.cuda())
+        else:
+            inputs, labels = Variable(inputs), Variable(labels)
+        outputs = model(inputs)
+        _, preds = torch.max(outputs.data, 1)
+        predictions.append(preds)
+        corrects = torch.sum(preds == labels.data)
+        running_corrects += corrects
+        running_label_len += len(labels.data)
+        print('Iteration [{}/{}] acc: {:.4f}'.format(
+            i, len(dl), float(corrects) / float(len(labels.data))))
+
+
+    pred = torch.stack(predictions[:-1])
+    preds = pred.cpu().numpy().flatten()
+    true_y = labels_roc.iloc[:, 1:].as_matrix().astype('float')
+    true_y = np.argmax(true_y[:177536], axis=1)
+    metrics.roc_curve(true_y, preds)
+    metrics.confusion_matrix(true_y, preds)
 
