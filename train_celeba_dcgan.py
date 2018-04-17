@@ -144,3 +144,14 @@ for epoch in range(start_epoch, epochs):
                            'g_optimizer': g_optimizer.state_dict()},
                           '%s/Epoch_(%d).ckpt' % (ckpt_dir, epoch + 1),
                           max_keep=2)
+    
+
+# SAMPLE FROM SAVED GAN
+def sample(n_samples):
+    z_sample = Variable(torch.randn(n_samples, z_dim))
+    z_sample = utils.cuda(z_sample)
+    imgs = (G(z_sample).data + 1) / 2.0
+    save_dir = './sample_images/celeba_dcgan'
+    utils.mkdir(save_dir)
+    torchvision.utils.save_image(f_imgs_sample,
+                                 '%s/Epoch_(%d)_(%dof%d).jpg' % (save_dir, epoch, i + 1, len(data_loader)), nrow=10)
