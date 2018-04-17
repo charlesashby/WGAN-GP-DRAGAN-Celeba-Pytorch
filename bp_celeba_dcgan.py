@@ -33,10 +33,11 @@ def sample(n_samples):
     save_dir = './sample_images/celeba_dcgan'
     utils.mkdir(save_dir)
     return imgs
-    #for i, img in enumerate(imgs):
-    #  torchvision.utils.save_image(img, '{}/{}.jpg'.format(save_dir, i))
 
-def birthday_paradox(num_batches=1, batch_size=1000):
+def birthday_paradox(num_batches=10, batch_size=100):
+  save_dir = './sample_images/celeba_dcgan'
+  utils.mkdir(save_dir)
+
   for n in range(num_batches):
     samples = sample(batch_size)
     closest = []
@@ -62,8 +63,7 @@ def birthday_paradox(num_batches=1, batch_size=1000):
       imgs[2*i] = samples[pair[0]]
       imgs[(2*i)+1] = samples[pair[1]]
 
-    save_dir = './sample_images/celeba_dcgan'
     torchvision.utils.save_image(imgs, '{}/batch_{}.jpg'.format(save_dir, n), nrow=2)
 
 
-birthday_paradox()
+birthday_paradox(10, 100)
