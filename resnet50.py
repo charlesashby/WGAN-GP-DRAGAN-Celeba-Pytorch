@@ -1,3 +1,5 @@
+from torch.autograd import Variable
+import torch
 import torch.nn as nn
 import math
 import torch.utils.model_zoo as model_zoo
@@ -86,17 +88,22 @@ class ResNet(nn.Module):
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
+        hidden_state = []
 
         x = self.layer1(x)
+        hidden_state.append(x.clone())
         x = self.layer2(x)
+        hidden_state.append(x.clone())
         x = self.layer3(x)
+        hidden_state.append(x.clone())
         x = self.layer4(x)
+        hidden_state.append(x.clone())
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
-        return x
+        return x, hidden_state
 
 def resnet50(pretrained=False, **kwargs):
     """Constructs a ResNet-50 model.
@@ -105,7 +112,39 @@ def resnet50(pretrained=False, **kwargs):
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+        model.load_state_dict(model_zoo.load_url('https://download.pytorch.org/models/resnet50-19c8e357.pth'))
 
     model.fc = nn.Linear(512 * 4, 2)
     return model
+
+def calculate_perceptual_distance(y0, y1, w=1):
+    # hidden's structure: (batch, channel, h, w)
+    diff = w*(y0 - y1)
+    norm = torch.norm(diff, p=2, dim=1)
+    sum1 = torch.sum(norm, dim=2)
+    sum2 = torch.sum(sum1, dim=1)
+    distance = sum2/(y0.size(2)*y0.size(3))
+
+    return distance
+
+def perceptual_distance(model, x0, x1):
+    distance = 0
+    _, y0 = model(x0)
+    _, y1 = model(x1)
+
+    for l in range(len(y0)):
+        distance += calculate_perceptual_distance(y0[l], y1[l])
+    return distance
+
+if __name__=='__main__':
+    print("Loading the model...")
+    resnet = resnet50()
+    resnet.cuda()
+    print("Get example")
+    n_batch = 32
+    example1 = torch.Tensor(n_batch, 3, 224, 224).uniform_(-1, 1).cuda()
+    example1 = Variable(example1)
+    example2 = torch.Tensor(n_batch, 3, 224, 224).uniform_(-1, 1).cuda()
+    example2 = Variable(example2)
+    perceptual_distance(resnet, example1, example2)
+
