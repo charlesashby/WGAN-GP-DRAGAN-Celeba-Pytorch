@@ -13,6 +13,9 @@ import torchvision.datasets as dsets
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
 import utils
+from os.path import join
+import numpy as np
+import pandas as pd
 
 
 class CustomDataset(Dataset):
@@ -136,20 +139,20 @@ transform = transforms.Compose(
      transforms.ToTensor(),
      transforms.Normalize(mean=[0.5] * 3, std=[0.5] * 3)])
 
-"""
+
 feature_extractor = FeatureExtractor('data/list_attr_celeba.txt', transform=transform)
 extracted_features = feature_extractor.extract_feature('No_Beard')
 print(len(extracted_features[0]))
 print(len(extracted_features[1]))
-data_loader = feature_extractor.build_data_loader(extracted_features[1], '/Tmp/pratogab/celeba/img_align_celeba')
-"""
+data_loader = feature_extractor.build_data_loader(extracted_features[0], '/Tmp/pratogab/celeba/img_align_celeba')
 
+"""
 imagenet_data = dsets.ImageFolder('/Tmp/pratogab/celeba', transform=transform)
 data_loader = torch.utils.data.DataLoader(imagenet_data,
                                           batch_size=batch_size,
                                           shuffle=True,
                                           num_workers=20)
-
+"""
 
 """ model """
 D = models_64x64.DiscriminatorWGANGP(3)
@@ -161,7 +164,7 @@ g_optimizer = torch.optim.Adam(G.parameters(), lr=lr, betas=(0.5, 0.999))
 
 
 """ load checkpoint """
-ckpt_dir = './checkpoints/celeba_wgan_gp'
+ckpt_dir = './checkpoints/celeba_wgan_no_beard'
 utils.mkdir(ckpt_dir)
 try:
     ckpt = utils.load_checkpoint(ckpt_dir)
@@ -236,7 +239,7 @@ for epoch in range(start_epoch, epochs):
             G.eval()
             f_imgs_sample = (G(z_sample).data + 1) / 2.0
 
-            save_dir = './sample_images_while_training/celeba_wgan_gp'
+            save_dir = './sample_images_while_training/celeba_wgan_no_beard'
             utils.mkdir(save_dir)
             torchvision.utils.save_image(f_imgs_sample, '%s/Epoch_(%d)_(%dof%d).jpg' % (save_dir, epoch, i + 1, len(data_loader)), nrow=10)
 

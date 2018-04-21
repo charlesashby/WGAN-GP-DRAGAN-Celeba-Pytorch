@@ -99,8 +99,8 @@ transform = transforms.Compose(
 
 # V MERGE IMAGES AND TARGETS FOR DATA LOADER
 labels = pd.read_csv('data/labels.csv')
-labels_train = labels[:25000]
-labels_valid = labels[25000:]
+labels_train = labels[:int(len(labels) * 0.9)]
+labels_valid = labels[int(len(labels) * 0.9):]
 
 
 class CustomDataset(Dataset):
@@ -137,7 +137,7 @@ valid_dl = DataLoader(valid_ds, batch_size=64, shuffle=True, num_workers=4)
 
 # VII TRAIN THE MODEL
 
-def train_model(dataloaders, model, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(dataloaders, model, criterion, optimizer, num_epochs=25):
     since = time.time()
     use_gpu = torch.cuda.is_available()
     best_model_wts = model.state_dict()
@@ -148,7 +148,7 @@ def train_model(dataloaders, model, criterion, optimizer, scheduler, num_epochs=
     for epoch in range(num_epochs):
         for phase in ['train', 'valid']:
             if phase == 'train':
-                scheduler.step()
+                #scheduler.step()
                 model.train(True)
             else:
                 model.train(False)
@@ -221,14 +221,16 @@ if use_gpu:
     resnet.cuda()
 
 criterion = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(resnet.fc.parameters(), lr=0.001, momentum=0.9)
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+#optimizer = torch.optim.SGD(resnet.fc.parameters(), lr=0.001, momentum=0.9)
+#optimizer = torch.optim.SGD(resnet.fc.parameters(), lr=0.1)
+optimizer = torch.optim.Adam(resnet.parameters())
+#exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 dloaders = {'train': train_dl, 'valid': valid_dl}
 
 
 if __name__ == '__main__':
     start_time = time.time()
-    model = train_model(dloaders, resnet, criterion, optimizer, exp_lr_scheduler, num_epochs=2)
+    model = train_model(dloaders, resnet, criterion, optimizer, num_epochs=10)
     print('Training time: {:10f} minutes'.format((time.time() - start_time)/60))
     utils.save_checkpoint({'model': model.state_dict()},
                           '%s/Epoch_(%d).ckpt' % (ckpt_dir, 1))
