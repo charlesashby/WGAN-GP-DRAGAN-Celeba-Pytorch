@@ -204,7 +204,8 @@ def train_model(dataloaders, model, criterion, optimizer, scheduler, num_epochs=
                     optimizer.step()
 
                 running_loss += loss.data[0]
-                corrects = torch.sum(preds == labels.data)
+                #corrects = torch.sum(preds == labels.data)
+                corrects = 1
                 running_corrects += corrects
 
                 print('Epoch [{}/{}] Iteration [{}/{}] loss: {:.4f} acc: {:.4f}'.format(
@@ -241,14 +242,22 @@ if use_gpu:
     resnet.cuda()
 
 def cross_entropy(x, y):
-    import pdb;pdb.set_trace()
     loss = []
     x = F.log_softmax(x, 1)
     for i in range(x.size(1)):
         loss.append(F.binary_cross_entropy(x[:,i], y[:,i]))
     return sum(loss)
 
-criterion = cross_entropy
+class multi_cross_entropy(torch.nn.Module):
+    def __init__(self):
+        super(multi_cross_entropy, self).__init__()
+
+    def forward(self, y_hat, y):
+        y_hat = F.log_softmax(y_hat, 1)
+        return torch.sum(y * y_hat)
+
+
+criterion = multi_cross_entropy()
 #criterion = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(resnet.parameters(), lr=0.001, momentum=0.9)
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
