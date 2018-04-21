@@ -17,7 +17,7 @@ import resnet50
 from torchvision import transforms, datasets, models
 
 CELEBA_DATASET_PATH = '/Tmp/pratogab/celeba/img_align_celeba'
-ckpt_dir = './checkpoints/celeba_dcgan_blond'
+ckpt_dir = './checkpoints/celeba_dcgan_black_hair'
 
 # ----------------------------------------------------------------------
 #                     HOW TO USE THE MODEL
@@ -49,7 +49,7 @@ f = open('data/list_attr_celeba.txt', 'r')
 lines = f.readlines()
 n_lines = lines[0]
 features = lines[1].split(' ')
-feature = 'Blond_Hair'
+feature = 'Black_Hair'
 feature_id = features.index(feature)
 
 pos_ = []
@@ -73,7 +73,7 @@ random.Random(1).shuffle(data)
 file_name = 'data/labels.csv'
 with open(file_name,'w') as out:
     csv_out=csv.writer(out)
-    csv_out.writerow(['img_name', 'with_blond', 'without_blond'])
+    csv_out.writerow(['img_name', 'with_black_hair', 'without_black_hair'])
     for row in data:
         csv_out.writerow(row)
 
@@ -230,7 +230,7 @@ dloaders = {'train': train_dl, 'valid': valid_dl}
 
 if __name__ == '__main__':
     start_time = time.time()
-    model = train_model(dloaders, resnet, criterion, optimizer, num_epochs=10)
+    model = train_model(dloaders, resnet, criterion, optimizer, num_epochs=5)
     print('Training time: {:10f} minutes'.format((time.time() - start_time)/60))
     utils.save_checkpoint({'model': model.state_dict()},
                           '%s/Epoch_(%d).ckpt' % (ckpt_dir, 1))
