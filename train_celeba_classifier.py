@@ -15,12 +15,14 @@ import torchvision
 import torchvision.datasets as dsets
 import resnet50
 from torchvision import transforms, datasets, models
+import torch.nn.functional as F
 
 DATASET = '/Tmp/brouilph/datasets/img_align_celeba/'
 ANNOTATION = '/Tmp/brouilph/datasets/img_align_celeba/data/list_attr_celeba.txt'
 OUTPUT_IMG = ''
 OUTPUT_CHECKPOINT = ''
 
+use_gpu = torch.cuda.is_available()
 resnet = resnet50.resnet50(pretrained=True)
 resnet.cuda()
 # squeezenet = models.squeezenet1_1(pretrained=True)
@@ -51,7 +53,7 @@ offset_width = (178 - crop_size) // 2
 transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.ToPILImage(),
-     transforms.Resize(size=(re_size, re_size), interpolation=Image.BICUBIC),
+     transforms.Scale(size=(re_size, re_size), interpolation=Image.BICUBIC),
      transforms.ToTensor(),
      transforms.Normalize(mean=[0.5] * 3, std=[0.5] * 3)])
 # data = dsets.ImageFolder('/home/ashbylepoc/PycharmProjects/gan-tutorial/data/', transform=transform)
@@ -70,6 +72,9 @@ class FeatureExtractor(object):
         self.features = self.lines[1].split(' ')
         self.transform = transform
         self.batch_size = batch_size
+
+    def get_nb_feature(self):
+        return len(self.features) - 1
 
     def extract_feature(self, feature=None):
         """
@@ -96,7 +101,7 @@ class FeatureExtractor(object):
             line = split_line(line)
             img_path = line[0]
             img_paths.append(img_path)
-            label = map(int, line[1:])
+            label = map(int, line[1])
             label = np.array( label)
             label = (label + 1) / 2
 
@@ -112,21 +117,24 @@ class FeatureExtractor(object):
         :return:
             dataloader for training a GAN
         """
-        labels = pd.DataFrame({
-            'img_name': img_paths,
-            'labels': results,
-        })
+        #labels = pd.DataFrame({
+        #    'img_name': img_paths,
+        #    'labels': results,
+        #})
         if train:
-            labels = labels[:int(len(labels) * 0.80)]
+            img_paths = img_paths[:int(len(img_paths) * 0.80)]
+            results = results[:int(len(results) * 0.80)]
         else:
-            labels = labels[int(len(labels) * 0.80):]
-        ds = CustomDataset(labels, imgs_directory, transform=self.transform)
+            img_paths = img_paths[int(len(img_paths) * 0.80):]
+            results = results[int(len(results) * 0.80):]
+        ds = CustomDataset(img_paths, results, imgs_directory, transform=self.transform)
         dl = DataLoader(ds, batch_size=self.batch_size, shuffle=True, num_workers=4)
         return dl
 
 class CustomDataset(Dataset):
-    def __init__(self, labels, root_dir, subset=False, transform=None):
+    def __init__(self, img_paths, labels, root_dir, subset=False, transform=None):
         self.labels = labels
+        self.img_paths = img_paths
         self.root_dir = root_dir
         self.transform = transform
 
@@ -134,10 +142,10 @@ class CustomDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        img_name = '{}'.format(self.labels.iloc[idx, 0])
+        img_name = '{}'.format(self.img_paths[idx])
         fullname = join(self.root_dir, img_name)
         image = Image.open(fullname)
-        labels = self.labels.iloc[idx, 1:].as_matrix().astype('float')
+        labels = self.labels[idx]
         if self.transform:
             image = self.transform(image)
         return [image, labels]
@@ -181,9 +189,9 @@ def train_model(dataloaders, model, criterion, optimizer, scheduler, num_epochs=
                 # import pdb; pdb.set_trace()
                 # labels = torch.LongTensor([int(l[1]) for l in lines])
                 if use_gpu:
-                    inputs, labels = Variable(inputs.cuda()), Variable(labels.cuda())
+                    inputs, labels = Variable(inputs.cuda()), Variable(labels.float().cuda())
                 else:
-                    inputs, labels = Variable(inputs), Variable(labels)
+                    inputs, labels = Variable(inputs), Variable(labels.float())
 
                 optimizer.zero_grad()
 
@@ -227,16 +235,24 @@ def train_model(dataloaders, model, criterion, optimizer, scheduler, num_epochs=
 
 
 num_ftrs = resnet.fc.in_features
-resnet.fc = torch.nn.Linear(num_ftrs, 2)
+resnet.fc = torch.nn.Linear(num_ftrs, feature_extractor.get_nb_feature())
 
 if use_gpu:
     resnet.cuda()
 
-criterion = torch.nn.CrossEntropyLoss()
+def cross_entropy(x, y):
+    import pdb;pdb.set_trace()
+    loss = []
+    x = F.log_softmax(x, 1)
+    for i in range(x.size(1)):
+        loss.append(F.binary_cross_entropy(x[:,i], y[:,i]))
+    return sum(loss)
+
+criterion = cross_entropy
+#criterion = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(resnet.parameters(), lr=0.001, momentum=0.9)
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 dloaders = {'train': train_dl, 'valid': valid_dl}
-
 
 if __name__ == '__main__':
     start_time = time.time()
