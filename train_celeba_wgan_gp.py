@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import models_64x64
 import PIL.Image as Image
-import tensorboardX
+#import tensorboardX
 import torch
 from torch.autograd import grad
 from torch.autograd import Variable
@@ -28,13 +28,9 @@ def gradient_penalty(x, y, f):
 
     return gp
 
-""" gpu """
-gpu_id = [2]
-utils.cuda_devices(gpu_id)
-
 
 """ param """
-epochs = 50
+epochs = 30
 batch_size = 64
 n_critic = 5
 lr = 0.0002
@@ -46,21 +42,21 @@ crop_size = 108
 re_size = 64
 offset_height = (218 - crop_size) // 2
 offset_width = (178 - crop_size) // 2
-crop = lambda x: x[:, offset_height:offset_height + crop_size, offset_width:offset_width + crop_size]
+#crop = lambda x: x[:, offset_height:offset_height + crop_size, offset_width:offset_width + crop_size]
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
-     transforms.Lambda(crop),
+#     transforms.Lambda(crop),
      transforms.ToPILImage(),
-     transforms.Scale(size=(re_size, re_size), interpolation=Image.BICUBIC),
+     transforms.Resize(size=(re_size, re_size), interpolation=Image.BICUBIC),
      transforms.ToTensor(),
      transforms.Normalize(mean=[0.5] * 3, std=[0.5] * 3)])
 
-imagenet_data = dsets.ImageFolder('./data/img_align_celeba', transform=transform)
+imagenet_data = dsets.ImageFolder('/Tmp/pratogab/celeba', transform=transform)
 data_loader = torch.utils.data.DataLoader(imagenet_data,
                                           batch_size=batch_size,
                                           shuffle=True,
-                                          num_workers=4)
+                                          num_workers=20)
 
 
 """ model """
@@ -88,7 +84,7 @@ except:
 
 
 """ run """
-writer = tensorboardX.SummaryWriter('./summaries/celeba_wgan_gp')
+#writer = tensorboardX.SummaryWriter('./summaries/celeba_wgan_gp')
 
 z_sample = Variable(torch.randn(100, z_dim))
 z_sample = utils.cuda(z_sample)
@@ -120,8 +116,8 @@ for epoch in range(start_epoch, epochs):
         d_loss.backward()
         d_optimizer.step()
 
-        writer.add_scalar('D/wd', wd.data.cpu().numpy(), global_step=step)
-        writer.add_scalar('D/gp', gp.data.cpu().numpy(), global_step=step)
+        #writer.add_scalar('D/wd', wd.data.cpu().numpy(), global_step=step)
+        #writer.add_scalar('D/gp', gp.data.cpu().numpy(), global_step=step)
 
         if step % n_critic == 0:
             # train G
@@ -135,9 +131,11 @@ for epoch in range(start_epoch, epochs):
             g_loss.backward()
             g_optimizer.step()
 
+            """
             writer.add_scalars('G',
                                {"g_loss": g_loss.data.cpu().numpy()},
                                global_step=step)
+            """
 
         if (i + 1) % 1 == 0:
             print("Epoch: (%3d) (%5d/%5d)" % (epoch, i + 1, len(data_loader)))

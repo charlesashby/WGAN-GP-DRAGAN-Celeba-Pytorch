@@ -211,8 +211,8 @@ def train_model(dataloaders, model, criterion, optimizer, scheduler, num_epochs=
     return model
 
 
-for param in resnet.parameters():
-    param.requires_grad = False
+#for param in resnet.parameters():
+#    param.requires_grad = False
 
 num_ftrs = resnet.fc.in_features
 resnet.fc = torch.nn.Linear(num_ftrs, 2)

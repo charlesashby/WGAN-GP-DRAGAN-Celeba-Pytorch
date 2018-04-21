@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import models_64x64
 import PIL.Image as Image
-import tensorboardX
+#import tensorboardX
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
@@ -28,7 +28,7 @@ class CustomDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        img_name = '{}'.format(self.labels.iloc[idx, 0])
+        img_name = '{}'.format(self.labels.iloc[idx, 0])[:-4] + '.png'
         fullname = join(self.root_dir, img_name)
         image = Image.open(fullname)
         # labels = self.labels.iloc[idx, 1].astype('int')
@@ -102,14 +102,8 @@ class FeatureExtractor(object):
         return dl
 
 
-
-""" gpu """
-gpu_id = [0]
-utils.cuda_devices(gpu_id)
-
-
 """ param """
-epochs = 50
+epochs = 30
 batch_size = 64
 lr = 0.0002
 z_dim = 100
@@ -120,13 +114,13 @@ crop_size = 108
 re_size = 64
 offset_height = (218 - crop_size) // 2
 offset_width = (178 - crop_size) // 2
-crop = lambda x: x[:, offset_height:offset_height + crop_size, offset_width:offset_width + crop_size]
+#crop = lambda x: x[:, offset_height:offset_height + crop_size, offset_width:offset_width + crop_size]
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
-     transforms.Lambda(crop),
+     #transforms.Lambda(crop),
      transforms.ToPILImage(),
-     transforms.Scale(size=(re_size, re_size), interpolation=Image.BICUBIC),
+     transforms.Resize(size=(re_size, re_size), interpolation=Image.BICUBIC),
      transforms.ToTensor(),
      transforms.Normalize(mean=[0.5] * 3, std=[0.5] * 3)])
 
@@ -134,8 +128,8 @@ transform = transforms.Compose(
 
 
 feature_extractor = FeatureExtractor('data/list_attr_celeba.txt', transform=transform)
-extracted_features = feature_extractor.extract_feature('Eyeglasses')
-data_loader = feature_extractor.build_data_loader(extracted_features[0], '/home/ashbylepoc/PycharmProjects/gan-tutorial/data/train/img_align_celeba')
+extracted_features = feature_extractor.extract_feature('Blond_Hair')
+data_loader = feature_extractor.build_data_loader(extracted_features[1], '/Tmp/pratogab/celeba/img_align_celeba_')
 
 # imagenet_data = dsets.ImageFolder('/home/ashbylepoc/PycharmProjects/gan-tutorial/data', transform=transform)
 # data_loader = torch.utils.data.DataLoader(imagenet_data,
@@ -155,7 +149,7 @@ g_optimizer = torch.optim.Adam(G.parameters(), lr=lr, betas=(0.5, 0.999))
 
 
 """ load checkpoint """
-ckpt_dir = './checkpoints/celeba_dcgan_1'
+ckpt_dir = './checkpoints/celeba_dcgan_blond'
 utils.mkdir(ckpt_dir)
 try:
     ckpt = utils.load_checkpoint(ckpt_dir)
@@ -170,7 +164,7 @@ except:
 
 
 """ run """
-writer = tensorboardX.SummaryWriter('./summaries/celeba_dcgan_glasses')
+#writer = tensorboardX.SummaryWriter('./summaries/celeba_dcgan_glasses')
 
 z_sample = Variable(torch.randn(100, z_dim))
 z_sample = utils.cuda(z_sample)
@@ -203,11 +197,13 @@ for epoch in range(start_epoch, epochs):
         d_loss.backward()
         d_optimizer.step()
 
+        """
         writer.add_scalars('D',
                            {"d_loss": d_loss.data.cpu().numpy(),
                             "d_r_loss": d_r_loss.data.cpu().numpy(),
                             "d_f_loss": d_f_loss.data.cpu().numpy()},
                            global_step=step)
+        """
 
         # train G
         f_logit = D(f_imgs)
@@ -218,9 +214,11 @@ for epoch in range(start_epoch, epochs):
         g_loss.backward()
         g_optimizer.step()
 
+        """
         writer.add_scalars('G',
                            {"g_loss": g_loss.data.cpu().numpy()},
                            global_step=step)
+        """
 
         if (i + 1) % 1 == 0:
             print("Epoch: (%3d) (%5d/%5d)" % (epoch, i + 1, len(data_loader)))
