@@ -7,15 +7,17 @@ from os import listdir, makedirs, getcwd, remove
 from os.path import isfile, join, abspath, exists, isdir, expanduser
 from PIL import Image
 import torch
+import utils
 from torch.optim import lr_scheduler
 from torch.autograd import Variable
 from torch.utils.data import Dataset, DataLoader
 import torchvision
 import torchvision.datasets as dsets
+import resnet50
 from torchvision import transforms, datasets, models
 
-use_gpu = torch.cuda.is_available()
-resnet = models.resnet50(pretrained=True)
+resnet = resnet50.resnet50(pretrained=True)
+resnet.cuda()
 # squeezenet = models.squeezenet1_1(pretrained=True)
 
 # ----------------------------------------------------------------------
@@ -48,7 +50,7 @@ f = open('data/list_attr_celeba.txt', 'r')
 lines = f.readlines()
 n_lines = lines[0]
 features = lines[1].split(' ')
-feature = 'Eyeglasses'
+feature = 'Blond_Hair'
 feature_id = features.index(feature)
 
 pos_ = []
@@ -70,9 +72,9 @@ random.Random(1).shuffle(data)
 
 # III CREATE CSV FILES WITH THE NAME OF THE IMAGES + TARGETS
 file_name = 'data/labels.csv'
-with open(file_name,'wb') as out:
+with open(file_name,'w') as out:
     csv_out=csv.writer(out)
-    csv_out.writerow(['img_name', 'with_glasses', 'without_glasses'])
+    csv_out.writerow(['img_name', 'with_blond', 'without_blond'])
     for row in data:
         csv_out.writerow(row)
 
@@ -84,13 +86,13 @@ crop_size = 108
 re_size = 224
 offset_height = (218 - crop_size) // 2
 offset_width = (178 - crop_size) // 2
-crop = lambda x: x[:, offset_height:offset_height + crop_size, offset_width:offset_width + crop_size]
+#crop = lambda x: x[:, offset_height:offset_height + crop_size, offset_width:offset_width + crop_size]
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
-     transforms.Lambda(crop),
+     #transforms.Lambda(crop),
      transforms.ToPILImage(),
-     transforms.Scale(size=(re_size, re_size), interpolation=Image.BICUBIC),
+     transforms.Resize(size=(re_size, re_size), interpolation=Image.BICUBIC),
      transforms.ToTensor(),
      transforms.Normalize(mean=[0.5] * 3, std=[0.5] * 3)])
 # data = dsets.ImageFolder('/home/ashbylepoc/PycharmProjects/gan-tutorial/data/', transform=transform)
@@ -113,6 +115,7 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, idx):
         img_name = '{}'.format(self.labels.iloc[idx, 0])
+        img_name = '{}.png'.format(img_name[:-4])
         fullname = join(self.root_dir, img_name)
         image = Image.open(fullname)
         labels = self.labels.iloc[idx, 1:].as_matrix().astype('float')
@@ -122,9 +125,9 @@ class CustomDataset(Dataset):
         return [image, labels]
 
 
-train_ds = CustomDataset(labels_train, '/home/ashbylepoc/PycharmProjects/gan-tutorial/data/glasses/train/train/',
+train_ds = CustomDataset(labels_train, '/Tmp/pratogab/celeba/img_align_celeba',
                          transform=transform)
-valid_ds = CustomDataset(labels_valid, '/home/ashbylepoc/PycharmProjects/gan-tutorial/data/glasses/valid/valid/',
+valid_ds = CustomDataset(labels_valid, '/Tmp/pratogab/celeba/img_align_celeba',
                          transform=transform)
 
 train_dl = DataLoader(train_ds, batch_size=64, shuffle=True, num_workers=4)
@@ -226,7 +229,12 @@ dloaders = {'train': train_dl, 'valid': valid_dl}
 if __name__ == '__main__':
     start_time = time.time()
     model = train_model(dloaders, resnet, criterion, optimizer, exp_lr_scheduler, num_epochs=2)
+    ckpt_dir = './checkpoints/celeba_dcgan_blond'
     print('Training time: {:10f} minutes'.format((time.time() - start_time)/60))
+    utils.save_checkpoint({'model': model.state_dict()},
+                          '%s/Epoch_(%d).ckpt' % (ckpt_dir, 1))
+    print('Saved model.')
+    """
     
     # Load checkpoint
     try:
@@ -239,15 +247,15 @@ if __name__ == '__main__':
     complete_ds = pos_[25000:] + neg_[-30000:]
     file_name = 'data/labels_roc.csv'
     random.Random(1).shuffle(complete_ds)
-    with open(file_name, 'wb') as out:
+    with open(file_name, 'w') as out:
         csv_out = csv.writer(out)
-        csv_out.writerow(['img_name', 'with_glasses', 'without_glasses'])
+        csv_out.writerow(['img_name', 'with_blond', 'without_blond'])
         for row in complete_ds:
             csv_out.writerow(row)
 
     labels_roc = pd.read_csv('data/labels_roc.csv')
 
-    ds = CustomDataset(labels_roc, '/home/ashbylepoc/PycharmProjects/gan-tutorial/data/train/img_align_celeba/',
+    ds = CustomDataset(labels_roc, './data/train/img_align_celeba/',
                              transform=transform)
 
     dl = DataLoader(ds, batch_size=64, shuffle=True, num_workers=4)
@@ -278,4 +286,5 @@ if __name__ == '__main__':
     true_y = np.argmax(true_y[:177536], axis=1)
     metrics.roc_curve(true_y, preds)
     metrics.confusion_matrix(true_y, preds)
-
+    """
+    pass
