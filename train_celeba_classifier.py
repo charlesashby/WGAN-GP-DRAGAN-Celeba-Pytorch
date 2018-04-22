@@ -162,7 +162,7 @@ valid_dl = feature_extractor.build_data_loader(img_paths, results, DATASET, trai
 
 # VII TRAIN THE MODEL
 
-def train_model(dataloaders, model, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(dataloaders, model, criterion, optimizer, scheduler, nb_features, num_epochs=25):
     since = time.time()
     use_gpu = torch.cuda.is_available()
     best_model_wts = model.state_dict()
@@ -196,28 +196,32 @@ def train_model(dataloaders, model, criterion, optimizer, scheduler, num_epochs=
                 optimizer.zero_grad()
 
                 outputs, hidden = model(inputs)
-                _, preds = torch.max(outputs.data, 1)
                 loss = criterion(outputs, labels)
 
                 if phase == 'train':
                     loss.backward()
                     optimizer.step()
 
+                #import pdb;pdb.set_trace()
+                preds = outputs.clone()
+                preds = F.sigmoid(preds)
+                preds = torch.round(preds)
+                corrects = torch.sum(preds.data == labels.data)
+
                 running_loss += loss.data[0]
-                #corrects = torch.sum(preds == labels.data)
-                corrects = 1
+                #corrects = 1
                 running_corrects += corrects
 
                 print('Epoch [{}/{}] Iteration [{}/{}] loss: {:.4f} acc: {:.4f}'.format(
                     epoch, num_epochs-1, i, len(dataloaders[phase]),
-                    loss.data[0], float(corrects) / float(len(labels.data))))
+                    loss.data[0], float(corrects) / float(len(labels.data) * nb_features)))
 
             if phase == 'train':
                 train_epoch_loss = float(running_loss) / float(dataset_sizes[phase])
-                train_epoch_acc = float(running_corrects) / float(dataset_sizes[phase])
+                train_epoch_acc = float(running_corrects) / float(dataset_sizes[phase] * nb_features)
             else:
                 valid_epoch_loss = float(running_loss) / float(dataset_sizes[phase])
-                valid_epoch_acc = float(running_corrects) / float(dataset_sizes[phase])
+                valid_epoch_acc = float(running_corrects) / float(dataset_sizes[phase] * nb_features)
 
             if phase == 'valid' and valid_epoch_acc > best_acc:
                 best_acc = valid_epoch_acc
@@ -253,8 +257,11 @@ class multi_cross_entropy(torch.nn.Module):
         super(multi_cross_entropy, self).__init__()
 
     def forward(self, y_hat, y):
-        y_hat = F.log_softmax(y_hat, 1)
-        return torch.sum(y * y_hat)
+        loss = []
+        y_hat = F.sigmoid(y_hat) # add log?
+        for i in range(y_hat.size(1)):
+            loss.append(F.binary_cross_entropy(y_hat[:,i], y[:,i]))
+        return sum(loss)
 
 
 criterion = multi_cross_entropy()
@@ -265,7 +272,7 @@ dloaders = {'train': train_dl, 'valid': valid_dl}
 
 if __name__ == '__main__':
     start_time = time.time()
-    model = train_model(dloaders, resnet, criterion, optimizer, exp_lr_scheduler, num_epochs=2)
+    model = train_model(dloaders, resnet, criterion, optimizer, exp_lr_scheduler, feature_extractor.get_nb_feature(), num_epochs=2)
     ckpt_dir = OUTPUT_CHECKPOINT
     print('Training time: {:10f} minutes'.format((time.time() - start_time)/60))
     utils.save_checkpoint({'model': model.state_dict()},
