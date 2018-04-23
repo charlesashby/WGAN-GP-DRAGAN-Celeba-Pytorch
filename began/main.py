@@ -29,6 +29,9 @@ from models import *
 import argparse
 import random
 
+experiment_path = 'experiments'
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpuid', default=0, type=int)
 parser.add_argument('--ngpu', default=1, type=int)
@@ -51,7 +54,7 @@ parser.add_argument('--base_path', default='/home/ashbylepoc/PycharmProjects/WGA
 parser.add_argument('--data_path', default='/home/ashbylepoc/PycharmProjects/gan-tutorial/data/train/img_align_celeba')
 parser.add_argument('--load_step', default=0, type=int)
 parser.add_argument('--print_step', default=100, type=int)
-parser.add_argument('--num_workers', default=12, type=int)
+parser.add_argument('--num_workers', default=4, type=int)
 parser.add_argument('--l_type', default=1, type=int)
 parser.add_argument('--tanh', default=1, type=int)
 parser.add_argument('--manualSeed', default=5451, type=int)
@@ -174,7 +177,6 @@ extracted_features = feature_extractor.extract_feature('No_Beard')
 data_loader = feature_extractor.build_data_loader(extracted_features[1],
                                 '/home/ashbylepoc/PycharmProjects/gan-tutorial/data/train/img_align_celeba')
 
-
 class BEGAN():
     def __init__(self):
         self.global_step = opt.load_step
@@ -201,16 +203,17 @@ class BEGAN():
 
     def write_config(self, step):
         f = open(os.path.join(opt.base_path,
-                              'experiments/%s/params/%d.cfg' % (opt.model_name, step)), 'w')
+                              experiment_path + '/%s/params/%d.cfg' % (opt.model_name, step)), 'w')
         print(f, vars(opt))
         f.close()
  
     def prepare_paths(self):
+        utils.mkdir(experiment_path)
         self.data_path = opt.data_path
-        self.gen_save_path = os.path.join(opt.base_path, 'experiments/%s/models' % opt.model_name)
-        self.disc_save_path = os.path.join(opt.base_path, 'experiments/%s/models' % opt.model_name)
-        self.sample_dir = os.path.join(opt.base_path,  'experiments/%s/samples' % opt.model_name)
-        param_dir =  os.path.join(opt.base_path,  'experiments/%s/params' % opt.model_name)
+        self.gen_save_path = os.path.join(opt.base_path, experiment_path + '/%s/models' % opt.model_name)
+        self.disc_save_path = os.path.join(opt.base_path, experiment_path + '/%s/models' % opt.model_name)
+        self.sample_dir = os.path.join(opt.base_path,  experiment_path + '/%s/samples' % opt.model_name)
+        param_dir =  os.path.join(opt.base_path,  experiment_path + '/%s/params' % opt.model_name)
 
         for path in [self.gen_save_path, self.disc_save_path, self.sample_dir, param_dir]:
             if not os.path.exists(path):
@@ -298,7 +301,7 @@ class BEGAN():
         except:
             pass
 
-        save_dir = './sample_images/celeba_dcgan_blond'
+        save_dir = './sample_images/{}'.format(experiment_path)
         utils.mkdir(save_dir)
         for n in range(num_batches):
             samples = self.sample(batch_size)
@@ -335,6 +338,7 @@ class BEGAN():
         prev_measure = 1
         lr = opt.lr
 
+        # import pdb; pdb.set_trace()
         for i in range(opt.epochs):
             for _, (data, _) in enumerate(self.data_loader):
                 # print(self.global_step)
@@ -415,7 +419,6 @@ class BEGAN():
                             lr = min(lr * 0.5, opt.lr_lower_boundary)
                         prev_measure = cur_measure
 
-
                 for p in g_opti.param_groups + d_opti.param_groups:
                     p['lr'] = lr
 
@@ -478,7 +481,6 @@ def generative_experiments(obj):
 
 if __name__ == "__main__":
     obj = BEGAN()
-    print('ok')
     if opt.train:
         obj.train()
     elif opt.bp:
